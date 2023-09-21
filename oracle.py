@@ -3,9 +3,11 @@ import random
 import numpy as np
 from sklearn.svm import OneClassSVM
 
+np.random.seed(60)
+
 
 def side_wrt_hyperplane(point, hyperplane):
-    point = np.array(point[0]) - np.array(hyperplane)
+    point = np.array(point) - np.array(hyperplane)
     if np.dot(point, hyperplane) == 0:
         return 0
     return abs(np.dot(point, hyperplane)) / (np.dot(point, hyperplane))
@@ -36,7 +38,7 @@ def hyperplane_from_midpoint(r, s):
 
 
 class RandomLinearOracle:
-    def __init__(self, dataset, oracle_size=500, classifier=OneClassSVM):
+    def __init__(self, dataset, oracle_size, classifier=OneClassSVM):
         self.oracle = []
         self.size = oracle_size
         self.classifier = classifier
@@ -57,22 +59,31 @@ class RandomLinearOracle:
     def train_classifier(self, dataset_positive, dataset_negative):
         classifier = self.classifier
 
-        c_positive = classifier()
-        c_positive.fit([x for x, y in dataset_positive], [y for x, y in dataset_positive])
+        c_positive = None
+        if len(dataset_positive) != 0:
+            c_positive = classifier()
+            dpos_x, dpos_y = np.array([x for x, y in dataset_positive]), np.array([y for x, y in dataset_positive])
+            c_positive.fit(dpos_x, dpos_y.reshape(-1, 1))
 
-        c_negative = classifier()
-        c_negative.fit([x for x, y in dataset_negative], [y for x, y in dataset_negative])
+        c_negative = None
+        if len(dataset_negative) != 0:
+            c_negative = classifier()
+            dneg_x, dneg_y = np.array([x for x, y in dataset_negative]), np.array([y for x, y in dataset_negative])
+            c_negative.fit(dneg_x, dneg_y.reshape(-1, 1))
 
         return c_positive, c_negative
 
-    def build(self, dataset):
+    def build(self):
+        dataset = self.dataset
         size = self.size
         oracle = self.oracle
         for i in range(size):
-            hyperplane = self.random_hyperplane()
-            ds_pos, ds_neg = divide_data_set(hyperplane, dataset)
-
-            c_positive, c_negative = self.train_classifier(ds_pos, ds_neg)
+            hyperplane = None
+            c_positive, c_negative = None, None
+            while c_positive is None or c_negative is None:
+                hyperplane = self.random_hyperplane()
+                ds_pos, ds_neg = divide_data_set(hyperplane, dataset)
+                c_positive, c_negative = self.train_classifier(ds_pos, ds_neg)
 
             oracle.append((hyperplane, c_positive, c_negative))
 
